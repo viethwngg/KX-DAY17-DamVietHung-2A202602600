@@ -1,5 +1,27 @@
 # Phase 2, Track 3, Day 17: Memory Systems for AI Agent
 
+Bài lab đã được hoàn thiện trong `src/`. Câu trả lời bước 8 của Guide nằm trong [STEP8.md](STEP8.md). Báo cáo đo chi tiết và giới hạn triển khai nằm trong [RESULTS.md](RESULTS.md).
+
+Cấu trúc các thành phần cần nộp:
+
+```text
+KX-DAY17-DamVietHung-2A202602600/
+├── src/             # các file .py đã hoàn thiện
+├── data/            # input benchmark gốc, giữ nguyên
+├── STEP8.md         # phân tích kết quả theo bước 8 của Guide.md
+└── README.md
+```
+
+Chạy trên Windows PowerShell từ root repo:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe src/benchmark.py --json-output benchmark_results.json
+.\.venv\Scripts\python.exe -m pytest src/test_agents.py -v
+```
+
+Nếu chưa có môi trường: `python -m venv .venv`. Chế độ offline không cần các SDK provider. Chế độ live dùng thêm `requirements-live.txt`, cấu hình `.env` theo `.env.example`, rồi chạy benchmark với `--live`.
+
 Trong Day 17 này, các bạn sẽ tập trung vào một câu hỏi rất thực tế: làm sao để AI agent **không chỉ trả lời tốt trong một lượt chat**, mà còn **nhớ đúng thông tin quan trọng qua nhiều phiên làm việc** mà vẫn kiểm soát được chi phí token.
 
 Trong bài lab này, các bạn sẽ xây dựng và so sánh hai agent:
@@ -35,7 +57,7 @@ Sau khi hoàn thành, các bạn cần có khả năng:
 ├── data/            # dữ liệu benchmark dùng chung
 │   ├── conversations.json
 │   └── advanced_long_context.json
-└── src/             # bản scaffold dành cho sinh viên (pseudocode + TODO)
+└── src/             # bài giải: offline deterministic + tùy chọn live
     ├── model_provider.py
     ├── config.py
     ├── memory_store.py
@@ -143,7 +165,7 @@ source .venv/bin/activate
 pip install langchain langgraph langchain-openai langchain-google-genai langchain-anthropic langchain-ollama langchain-openrouter python-dotenv tabulate pytest
 ```
 
-Nếu muốn chạy chế độ live với LLM thật, hãy tạo file `.env` ở root repo (đã nằm trong `.gitignore`). Tên biến môi trường do các bạn quyết định khi viết `load_config()`. Ví dụ:
+Nếu muốn chạy chế độ live với LLM thật, hãy tạo file `.env` ở root repo (đã nằm trong `.gitignore`). Các biến môi trường đã được định nghĩa trong `.env.example`; `LLM_LIVE=true` bật live cho agent dùng trực tiếp, còn benchmark cần cờ `--live`. Ví dụ:
 
 ```
 LLM_PROVIDER=openai
@@ -164,6 +186,21 @@ pytest src/test_agents.py -v
 ```
 
 Benchmark cần in ra hai bảng: **Standard Benchmark** và **Long-Context Stress Benchmark**. Mỗi bảng so sánh Baseline với Advanced theo đủ 6 cột trong phần "Chỉ số benchmark cần hiểu".
+
+## Chi tiết bản triển khai
+
+- Hai agent dùng chung chính sách phản hồi offline trong `src/responses.py`; khác biệt nằm ở memory được cung cấp.
+- `User.md` dùng các field có cấu trúc; nơi ở và nghề nghiệp mới thay thế giá trị cũ. Style và mối quan tâm được gộp, loại trùng.
+- Fact chỉ được trích từ phát biểu rõ ràng của người dùng. Câu hỏi, câu giả định và các nhiễu trong dataset không ghi đè hồ sơ.
+- Profile nằm tại `state/profiles/user-<encoded-id>-<hash>/User.md`. Đường dẫn tách biệt user, kể cả trên Windows; ghi file bằng atomic replace.
+- Compact giữ 6 message gần nhất, gộp summary cũ và message bị nén, giới hạn summary ở 1.600 ký tự với cấu hình mặc định. Ngưỡng 1.400 token là ngưỡng mềm vì một message gần nhất có thể tự vượt ngưỡng.
+- Benchmark dùng thư mục state tạm riêng cho từng suite và xóa state tạm sau khi đo; không đọc hoặc sửa hồ sơ thật đã có. Kết quả JSON có thể lưu bằng `--json-output`.
+- Token offline được ước lượng bằng `ceil(len(text.strip()) / 4)` và thêm 4 token cho mỗi message trong prompt. Agent tokens chỉ tính đầu ra; prompt tokens tính ngữ cảnh gửi vào mỗi lượt. Cả hai chỉ số bao gồm lượt học và lượt recall.
+- Recall được hỏi ngay sau mỗi conversation, mỗi câu hỏi ở thread mới. Điều này tránh dùng correction của conversation tương lai để trả lời câu hỏi ở quá khứ.
+- Live dùng trực tiếp chat model LangChain với memory do lớp Python quản lý. Không cần LangGraph/tool middleware; summary và trích fact vẫn chạy bằng rule offline. Lỗi live được trả ra, không âm thầm chuyển sang offline.
+- Cấu hình judge đã sẵn sàng; cột quality hiện dùng heuristic ở cả hai chế độ, chưa gọi judge LLM.
+
+Các integration provider theo [tài liệu chính thức LangChain](https://reference.langchain.com/python/integrations/overview); OpenRouter dùng [ChatOpenRouter](https://reference.langchain.com/python/langchain-openrouter/langchain_openrouter).
 
 ## Cách dùng repo này
 

@@ -1,19 +1,20 @@
-# Student Scaffold
+# Completed lab implementation
 
-This `src/` folder is the student version of the lab.
+The seven scaffold modules are implemented. `responses.py` supplies the shared deterministic response policy and common prompt/token accounting.
 
-- It keeps the same high-level structure
-- The Python files are intentionally incomplete and contain pseudocode / TODOs
-- The benchmark structure should include: standard benchmark + long-context stress benchmark
-- The runtime should support these providers: `openai`, `custom`, `gemini`, `anthropic`, `ollama`, `openrouter`
+- Baseline keeps only per-thread history.
+- Advanced adds a durable `User.md` per user and a bounded summary per thread.
+- Offline is the default and requires no API key or provider SDK.
+- Live is optional, uses a LangChain chat model directly, and supports `openai`, `custom`, `gemini`, `anthropic`, `ollama`, and `openrouter`.
+- Profile extraction and summarization remain deterministic in both modes.
 
-Suggested flow:
+From the repository root:
 
-1. Start with `config.py`
-2. Implement `memory_store.py`
-3. Finish `agent_baseline.py`
-4. Finish `agent_advanced.py`
-5. Implement `benchmark.py`
-6. Make `test_agents.py` pass
+```powershell
+.\.venv\Scripts\python.exe src/benchmark.py --json-output benchmark_results.json
+.\.venv\Scripts\python.exe -m pytest src/test_agents.py -v
+```
 
-Datasets are available at the repo root in `data/`.
+For live mode, install `requirements-live.txt`, set provider credentials in `.env`, and pass `--live` to the benchmark. Setting `LLM_LIVE=true` enables live mode for directly constructed agents; `force_offline=True` always overrides it.
+
+The benchmark isolates its temporary state. Direct use of AdvancedAgent writes durable profiles under the configured `state/profiles/` directory. See the root README, `STEP8.md` for the Guide step 8 answer, and `RESULTS.md` for detailed accounting definitions, limits, and measured results.
